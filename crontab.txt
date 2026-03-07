@@ -1,0 +1,20 @@
+# Amazo Super Repo - Cron Configuration
+# Daily automated tasks for skill management and system maintenance
+
+# Daily skill scan at 6:00 AM
+0 6 * * * cd ~/clawd/super-repo && python3 scripts/skill_scanner.py >> logs/cron_skill_scan.log 2>&1
+
+# System health check every 5 minutes
+*/5 * * * * cd ~/clawd && bash monitoring/system_health.sh >> logs/health_check.log 2>&1
+
+# GitHub monitoring every 30 minutes
+*/30 * * * * cd ~/clawd/super-repo && python3 scripts/github_monitor.py >> logs/github_monitor.log 2>&1
+
+# Daily summary at 9:00 AM
+0 9 * * * cd ~/clawd && python3 amazo_core/generate_daily_summary.py >> logs/daily_summary.log 2>&1
+
+# Weekly super-repo sync (Sundays at 2 AM)
+0 2 * * 0 cd ~/clawd/super-repo && bash scripts/auto_link_skills.sh >> logs/weekly_sync.log 2>&1
+
+# Monthly full backup (1st of month at 3 AM)
+0 3 1 * * cd ~/clawd && tar -czf Backups/nexus_backup_$(date +\%Y\%m\%d).tar.gz super-repo/ amazo_core/ nexus/ --exclude='*.git' >> logs/backup.log 2>&1
