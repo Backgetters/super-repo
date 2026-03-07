@@ -1,0 +1,122 @@
+# Unified Orchestration Configuration
+# Backgetters Super Repo
+
+version: "3.8"
+
+services:
+  # Core Agent Orchestration
+  deer-flow:
+    build: ./core/deer-flow
+    environment:
+      - DEER_FLOW_MODE=super
+      - MCP_SERVERS=apitap:8080,graphthulhu:8081
+    volumes:
+      - ./skills:/skills:ro
+      - deer-flow-data:/data
+    networks:
+      - backgetters-net
+
+  claude-flow:
+    build: ./core/claude-flow
+    environment:
+      - ORCHESTRATOR_MODE=primary
+      - SUBORDINATES=deer-flow,agency-agents
+    depends_on:
+      - deer-flow
+    networks:
+      - backgetters-net
+
+  mission-control:
+    build: ./core/mission-control
+    ports:
+      - "3000:3000"
+    environment:
+      - DASHBOARD_MODE=unified
+      - MONITORED_SERVICES=deer-flow,claude-flow,agency-agents
+    networks:
+      - backgetters-net
+
+  # MCP Servers
+  apitap:
+    build: ./mcp-servers/apitap
+    ports:
+      - "8080:8080"
+    environment:
+      - MCP_MODE=server
+    networks:
+      - backgetters-net
+
+  graphthulhu:
+    build: ./mcp-servers/graphthulhu
+    ports:
+      - "8081:8081"
+    volumes:
+      - ~/Documents/Notes:/notes:ro
+    networks:
+      - backgetters-net
+
+  copilot-api:
+    build: ./mcp-servers/copilot-api
+    ports:
+      - "8082:8082"
+    environment:
+      - COPILOT_MODE=api-bridge
+    networks:
+      - backgetters-net
+
+  # Agency Agents
+  agency-agents:
+    build: ./agency/agency-agents
+    environment:
+      - AGENCY_MODE=swarm
+      - AVAILABLE_AGENTS=all
+    depends_on:
+      - deer-flow
+      - apitap
+    networks:
+      - backgetters-net
+
+  # Trading Bots (Paper mode by default)
+  polymarket-bot:
+    build: ./trading/Polymarket-betting-bot
+    environment:
+      - TRADING_MODE=paper
+      - POLYMARKET_API_KEY=${POLYMARKET_API_KEY}
+    networks:
+      - backgetters-net
+
+  bloomberg-terminal:
+    build: ./trading/bloomberg-terminal
+    ports:
+      - "3001:3001"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - ALPHAVANTAGE_KEY=${ALPHAVANTAGE_KEY}
+    depends_on:
+      - redis
+    networks:
+      - backgetters-net
+
+  # Infrastructure
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis-data:/data
+    networks:
+      - backgetters-net
+
+  zvec:
+    build: ./data/zvec
+    volumes:
+      - zvec-data:/data
+    networks:
+      - backgetters-net
+
+volumes:
+  deer-flow-data:
+  redis-data:
+  zvec-data:
+
+networks:
+  backgetters-net:
+    driver: bridge
